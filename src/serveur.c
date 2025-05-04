@@ -7,9 +7,8 @@ int main(int argc, char *argv[]) {
     CHECK_ERR(listenFD, "create_listening_sock");
     printf("Listening on port %d\n", port);
 
-    // Boucle d'acceptation des connexions
     while (1) {
-        // Acceptation d'une connexi
+        // Acceptation d'une connexion
         struct user *u = user_accept(listenFD);
 
         // Création d'un thread pour gérer le client
@@ -64,7 +63,6 @@ void *handle_client(void *user) {
     ask_username(u->sock, u->username, 32);
 
     // Message sur le serveur
-
     printf("\nUtilisateur connecté : [%s]\n\n", u->username);
 
     // Messagerie
