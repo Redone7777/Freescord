@@ -1,0 +1,13 @@
+# Binaires
+bin/
+build/
+*.o
+*.out
+*.run
+
+# Fichiers exécutables Linux
+srv
+clt
+
+# Éditeurs et OS
+.vscode/
