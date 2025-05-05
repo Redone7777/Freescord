@@ -101,7 +101,7 @@ void *handle_client(void *user) {
         BUFFER[recvRes] = '\0';
 
         // Vérifier si c'est une commande de déconnexion
-        if (strcmp(BUFFER, "/exit") == 0) break;
+        if (is_exit_command(BUFFER)) break;
 
         // Ajouter le pseudo devant le message
         struct message_info msg;
