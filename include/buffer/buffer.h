@@ -1,6 +1,11 @@
 #ifndef _BUFFER_H
 #define _BUFFER_H
+#include <error.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #ifndef EOF
 #define EOF -1
 #endif
@@ -33,33 +38,33 @@
  *   and line feed)
  */
 
-typedef struct buffer buffer;
+typedef struct buffer Buffer;
 
 /** Créer un buffer de taille buffsz pour les lectures
  * associées au fichier fd */
-buffer *buff_create(int fd, size_t buffsz);
+Buffer *buff_create(int fd, size_t buffsz);
 
 /** Retourner le prochain caractère à lire ou EOF (-1) si la fin
  * du fichier est atteinte.
  *
  * Cette fonction appellera l'appel système read si tous les octets
  * du buffer ont déjà été consommés */
-int buff_getc(buffer *b);
+int buff_getc(Buffer *b);
 
 /** Remettre le caractère c dans le buffer.
  * Le résultat n'est garanti que pour un seul caractère.
  * retourne le caractère c. */
-int buff_ungetc(buffer *b, int c);
+int buff_ungetc(Buffer *b, int c);
 
 /** Libérer le buffer buff et toute la mémoire associée. */
-void buff_free(buffer *buff);
+void buff_free(Buffer *buff);
 
 /** Retourner 1 si la lecture a atteint la fin du fichier, 0 sinon */
-int buff_eof(const buffer *buff);
+int buff_eof(const Buffer *buff);
 
 /** Retourner 1 si des octets sont disponibles dans le buffer sans lecture du
  * fichier */
-int buff_ready(const buffer *buff);
+int buff_ready(const Buffer *buff);
 
 /* Lire au plus size - 1 caractère dans le buffer b et les stocker dans le
  * tableau dest qui devrait pouvoir contenir au moins size octets.
@@ -67,7 +72,7 @@ int buff_ready(const buffer *buff);
  * '\n'. Si une fin de ligne '\n' est lue, elle est stocké dans dest. Retourne
  * buf en cas de succès, NULL en cas d'erreur, ou si la fin du fichier est
  * atteinte sans que des caractères aient été lus. */
-char *buff_fgets(buffer *b, char *dest, size_t size);
+char *buff_fgets(Buffer *b, char *dest, size_t size);
 
 /* Lire au plus size - 1 caractère dans le buffer b et les stocker dans le
  * tableau dest qui devrait pouvoir contenir au moins size octets.
@@ -75,6 +80,6 @@ char *buff_fgets(buffer *b, char *dest, size_t size);
  * suivi de '\n'. Si une fin de ligne "\r\n" est lue, elle est stocké dans dest.
  * Retourne buf en cas de succès, NULL en cas d'erreur, ou si la fin du fichier
  * est atteinte sans que des caractères aient été lus. */
-char *buff_fgets_crlf(buffer *b, char *dest, size_t size);
+char *buff_fgets_crlf(Buffer *b, char *dest, size_t size);
 
 #endif

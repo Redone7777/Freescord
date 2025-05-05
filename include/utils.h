@@ -1,6 +1,9 @@
 #ifndef UTILS_H
 #define UTILS_H value
 
+#include <stdlib.h>
+#include <string.h>
+
 /* Changer une ligne se terminant par CRLF en une ligne se terminant par LF.
  * La ligne doit être terminée par un carcactère nul.
  * Retourne la ligne modifiée ou NULL en cas d'erreur. */

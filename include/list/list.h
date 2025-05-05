@@ -9,7 +9,7 @@
  * to perform usual operations on lists.
  * All functions start with the prefix "list_", and (except for create) take a
  * pointer to a list as first argument.
- * 
+ *
  * There are higher-level functions to take care of the details:
  * - create (to create an empty list)
  * - add (at the end), add_first (at the beginning) and add_index (at the given
@@ -56,9 +56,9 @@
  * - insert_node_after, to insert a value after a given node in the list
  * - remove_node, to remove a given node in the list
  * - create_node, to create a new node on the heap with a given (void *) element
- * The insertion after or before a given node and the removal operation of a given
- * node assume that the given node is part of the list. Behaviour is unspecified
- * if it is not.
+ * The insertion after or before a given node and the removal operation of a
+ *given node assume that the given node is part of the list. Behaviour is
+ *unspecified if it is not.
  *
  * Any list manipulation using lower level operations, or by modifying the
  * members of the struct list (or struct nodes of this list) is on the sole
@@ -68,16 +68,19 @@
  */
 
 struct node {
-	void *elt;
-	struct node *next;
-	struct node *prev;
+    void *elt;
+    struct node *next;
+    struct node *prev;
 };
 
 struct list {
-	size_t length;
-	struct node *first;
-	struct node *last;
+    size_t length;
+    struct node *first;
+    struct node *last;
 };
+
+typedef struct node NODE;
+typedef struct list LIST;
 
 /** create an empty struct list */
 struct list *list_create(void);

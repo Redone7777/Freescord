@@ -36,13 +36,6 @@ struct user *user_accept(int sl) {
 
 // Demande au client de saisir un username et le stocke dans user->username
 void ask_username(int client, char *username, size_t size) {
-    const char *msg = "Votre Pseudo : ";
-    int sent = send(client, msg, strlen(msg), 0);
-    if (sent < 0) {
-        perror("send");
-        exit(EXIT_FAILURE);
-    }
-
     int received = recv(client, username, size - 1, 0);
     if (received < 0) {
         perror("recv");
@@ -57,9 +50,9 @@ void ask_username(int client, char *username, size_t size) {
 
 void user_free(struct user *user) {
     if (user) {
-        free(user->address);
-        free(user->username);
-        close(user->sock);
+        if (user->address) free(user->address);
+        if (user->username) free(user->username);
+        if (user->sock >= 0) close(user->sock);
         free(user);
     }
 }

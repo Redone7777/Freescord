@@ -10,10 +10,39 @@ L'application `freescord` permet à plusieurs clients de se connecter à un serv
 
 ## Contenu
 
-* `serveur.c` : code du serveur multithreadé.
-* `client.c` : client simple avec envoi/réception de messages.
-* `user.c` : gestion des connexions clients (struct user).
-* `Makefile` : compilation automatique avec `make`.
+Le projet est organisé comme suit :
+
+```
+├── include
+│   ├── buffer
+│   │   ├── buffer.c
+│   │   └── buffer.h
+│   ├── client.h
+│   ├── list
+│   │   ├── list.c
+│   │   ├── list.h
+│   │   └── test_list.c
+│   ├── serveur.h
+│   ├── user.h
+│   └── utils.h
+├── Makefile
+├── projet-freescord.pdf
+├── README.md
+└── src
+    ├── client.c
+    ├── serveur.c
+    ├── user.c
+    └── utils.c
+```
+
+- **src/serveur.c** : code du serveur multithreadé.
+- **src/client.c** : client simple avec envoi/réception de messages.
+- **src/user.c** : gestion des connexions clients (struct user).
+- **src/utils.c** : fonctions utilitaires diverses.
+- **include/buffer/buffer.c** : gestion des buffers de messages.
+- **include/list/list.c** : gestion des listes de clients connectés.
+- **Makefile** : compilation automatique avec `make`.
+- **projet-freescord.pdf** : rapport du projet.
 
 ## Compilation
 
@@ -23,10 +52,17 @@ make
 
 ## Utilisation
 
+
 ### Serveur
 
+
 ```bash
-./serveur [port]
+make serveur
+```
+ou 
+
+```bash
+./bin/srv [port]
 ```
 
 > Par défaut : `4321`
@@ -34,24 +70,19 @@ make
 ### Client
 
 ```bash
-./client [adresse_ip] [port]
+make serveur
+```
+ou 
+
+```bash
+./bin/clt [adresse_ip] [port]
 ```
 
 > Par défaut : `127.0.0.1` et `4321`
 
-## Fonctionnalités principales
-
-* Connexion TCP client/serveur
-* Prise en charge de plusieurs clients (via `pthread`)
-* Identification par pseudo
-* Echo des messages reçus
-* Diffusion des messages à tous les clients
-
 
 ## À faire / améliorations possibles
 
-* Ajout du format CRLF (`\r\n`)
-* Gestion bufferisée des entrées/sorties
 * Envoi de fichiers ou commandes
 
 ---

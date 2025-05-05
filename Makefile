@@ -48,6 +48,12 @@ $(BUILD_DIR)/%.o: %.c
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
+serveur : $(BIN_SRV)
+	./$<
+
+client : $(BIN_CLT)
+	./$<
+
 test: $(BIN_TEST)
 	valgrind --leak-check=full ./$<
 
