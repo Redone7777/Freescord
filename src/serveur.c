@@ -1,9 +1,8 @@
 #include "../include/serveur.h"
 
 /*================== Variables globales ==================*/
-int myTube[2];
-
 int socketFD;
+int myTube[2];
 LIST *connectUsers;
 pthread_t threadRepeater;
 pthread_mutex_t mutexUser = PTHREAD_MUTEX_INITIALIZER;
@@ -106,7 +105,7 @@ void *handle_client(void *user) {
         // Ajouter le pseudo devant le message
         struct message_info msg;
         msg.sender_socket = u->sock;
-        snprintf(msg.content, sizeof(msg.content), "%s : %s", u->username,
+        snprintf(msg.content, sizeof(msg.content), "%s : %s\n", u->username,
                  BUFFER);
 
         printf("%s", msg.content);

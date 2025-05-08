@@ -82,4 +82,6 @@ char *buff_fgets(Buffer *b, char *dest, size_t size);
  * est atteinte sans que des caractères aient été lus. */
 char *buff_fgets_crlf(Buffer *b, char *dest, size_t size);
 
+int buff_fill(Buffer *b);
+
 #endif
