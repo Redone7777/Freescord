@@ -34,20 +34,6 @@ struct user *user_accept(int sl) {
     return u;
 }
 
-// Demande au client de saisir un username et le stocke dans user->username
-void ask_username(int client, char *username, size_t size) {
-    int received = recv(client, username, size - 1, 0);
-    if (received < 0) {
-        perror("recv");
-        exit(EXIT_FAILURE);
-    }
-
-    // retire le \n
-    username[received] = '\0';
-    char *newline = strchr(username, '\n');
-    if (newline) *newline = '\0';
-}
-
 void user_free(struct user *user) {
     if (user) {
         if (user->address) free(user->address);

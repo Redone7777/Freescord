@@ -1,163 +1,141 @@
 #include "buffer.h"
 
 struct buffer {
-    int fd;           // Descripteur de fichier
-    char *buf;        // Buffer de lecture
-    size_t buffsz;    // Taille du buffer
-    size_t pos;       // Position actuelle dans le buffer
-    size_t end;       // Nombre d'octets valides dans le buffer
-    int eof;          // Indicateur de fin de fichier
-    int ungetc_char;  // Caractère remis dans le buffer par ungetc
+    int FD;
+    char *memBuf;
+
+    size_t bufSize;
+    size_t readPos;
+    size_t dataEnd;
+
+    int eof;
+    int saved; /* Caractère remis (ungetc) */
 };
 
+/* Création d'un nouveau buffer */
 Buffer *buff_create(int fd, size_t buffsz) {
-    Buffer *b = malloc(sizeof(Buffer));
-    if (b == NULL) {
+    Buffer *new = malloc(sizeof(Buffer));
+    if (!new) return NULL;
+
+    new->memBuf = malloc(buffsz);
+    if (!new->memBuf) {
+        free(new);
         return NULL;
     }
 
-    b->buf = malloc(buffsz);
-    if (b->buf == NULL) {
-        free(b);
-        return NULL;
-    }
+    new->FD = fd;
+    new->bufSize = buffsz;
+    new->readPos = 0;
+    new->dataEnd = 0;
+    new->eof = 0;
+    new->saved = EOF;
 
-    b->fd = fd;
-    b->buffsz = buffsz;
-    b->pos = 0;
-    b->end = 0;
-    b->eof = 0;
-    b->ungetc_char = EOF;
-
-    return b;
+    return new;
 }
 
-void buff_free(Buffer *buff) {
-    if (buff != NULL) {
-        free(buff->buf);
-        free(buff);
-    }
+/* Libération mémoire */
+void buff_free(Buffer *buf) {
+    if (!buf) return;
+    if (buf->memBuf) free(buf->memBuf);
+    free(buf);
 }
 
-int buff_fill(Buffer *b) {
-    if (b->eof) {
+/* Remplir le buffer avec de nouvelles données */
+int buff_fill(Buffer *buf) {
+    if (buf->eof) return EOF;
+
+    int bytesRead = read(buf->FD, buf->memBuf, buf->bufSize);
+
+    if (bytesRead <= 0) {
+        buf->eof = 1;
         return EOF;
     }
 
-    ssize_t n = read(b->fd, b->buf, b->buffsz);
-    if (n < 0) {
-        // Erreur de lecture
-        return EOF;
-    } else if (n == 0) {
-        // Fin de fichier atteinte
-        b->eof = 1;
-        return EOF;
-    }
-
-    b->pos = 0;
-    b->end = n;
+    buf->readPos = 0;
+    buf->dataEnd = bytesRead;
     return 0;
 }
 
-int buff_getc(Buffer *b) {
-    int c;
-
-    // Si un caractère a été remis dans le buffer avec ungetc, le retourner
-    if (b->ungetc_char != EOF) {
-        c = b->ungetc_char;
-        b->ungetc_char = EOF;
-        return c;
+/* Lire un caractère */
+int buff_getc(Buffer *buf) {
+    /* D'abord vérifier s'il y a un caractère mis de côté */
+    if (buf->saved != EOF) {
+        int tmp = buf->saved;
+        buf->saved = EOF;
+        return tmp;
     }
 
-    // Si le buffer est vide ou tous les caractères ont été lus
-    if (b->pos >= b->end) {
-        if (buff_fill(b) == EOF) {
-            return EOF;
-        }
+    if (buf->readPos >= buf->dataEnd) {
+        int res = buff_fill(buf);
+        if (res == EOF) return EOF;
     }
 
-    c = (unsigned char)b->buf[b->pos++];
+    return buf->memBuf[buf->readPos++];
+}
+
+/* Remettre un caractère dans le buffer */
+int buff_ungetc(Buffer *buf, int c) {
+    if (c == EOF) return EOF;
+    buf->saved = c;
     return c;
 }
 
-int buff_ungetc(Buffer *b, int c) {
-    if (c == EOF) {
-        return EOF;
-    }
-
-    b->ungetc_char = c;
-    return c;
+/* Test pour EOF */
+int buff_eof(const Buffer *buf) {
+    return buf->eof && (buf->readPos >= buf->dataEnd) && (buf->saved == EOF);
 }
 
-int buff_eof(const Buffer *buff) {
-    return buff->eof && (buff->pos >= buff->end) && (buff->ungetc_char == EOF);
+/* Test si des données sont disponibles dans le buffer */
+int buff_ready(const Buffer *buf) {
+    return (buf->saved != EOF) || (buf->readPos < buf->dataEnd);
 }
 
-int buff_ready(const Buffer *buff) {
-    return (buff->ungetc_char != EOF) || (buff->pos < buff->end);
-}
+/* Lire une ligne terminée par LF */
+char *buff_fgets(Buffer *buf, char *dest, size_t maxLen) {
+    if (!maxLen) return NULL;
 
-char *buff_fgets(Buffer *b, char *dest, size_t size) {
-    if (size == 0) {
-        return NULL;
+    int charCount = 0;
+    int curChar;
+
+    while (charCount < maxLen - 1) {
+        curChar = buff_getc(buf);
+        if (curChar == EOF) break;
+
+        dest[charCount++] = curChar;
+        if (curChar == '\n') break;
     }
 
-    size_t i = 0;
-    int c;
+    if (!charCount) return NULL;
 
-    while (i < size - 1) {
-        c = buff_getc(b);
-
-        if (c == EOF) {
-            break;
-        }
-
-        dest[i++] = c;
-
-        if (c == '\n') {
-            break;
-        }
-    }
-
-    if (i == 0) {
-        // Aucun caractère lu avant EOF
-        return NULL;
-    }
-
-    dest[i] = '\0';
+    dest[charCount] = '\0';
     return dest;
 }
 
-char *buff_fgets_crlf(Buffer *b, char *dest, size_t size) {
-    if (size == 0) {
-        return NULL;
-    }
+/* Lire une ligne terminée par CRLF */
+char *buff_fgets_crlf(Buffer *buf, char *dest, size_t maxLen) {
+    if (!maxLen) return NULL;
 
-    size_t i = 0;
-    int c, prev_c = 0;
+    int charCount = 0;
+    int curChar;
+    int hasCR = 0;
 
-    while (i < size - 1) {
-        c = buff_getc(b);
+    /* Lecture jusqu'à trouver CRLF ou atteindre la limite */
+    while (charCount < maxLen - 1) {
+        curChar = buff_getc(buf);
+        if (curChar == EOF) break;
 
-        if (c == EOF) {
+        dest[charCount++] = curChar;
+
+        if (curChar == '\r')
+            hasCR = 1;
+        else if (curChar == '\n' && hasCR)
             break;
-        }
-
-        dest[i++] = c;
-
-        // Si on a trouvé la séquence \r\n
-        if (prev_c == '\r' && c == '\n') {
-            break;
-        }
-
-        prev_c = c;
+        else
+            hasCR = 0;
     }
 
-    if (i == 0) {
-        // Aucun caractère lu avant EOF
-        return NULL;
-    }
+    if (!charCount) return NULL;
 
-    dest[i] = '\0';
+    dest[charCount] = '\0';
     return dest;
 }

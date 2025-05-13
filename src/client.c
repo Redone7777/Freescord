@@ -71,55 +71,58 @@ int connect_serveur_tcp(char *adresse, uint16_t port) {
 /*====== Séquence d'accueil et pseudo ======*/
 void welcome_sequence(int sock) {
     char buffer[BUFFER_SIZE];
+    int received, status;
 
     // Message de bienvenue
-    int received = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    CHECK_ERR(received, "recv");
+    received = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    CHECK_ERR(received, "recv welcome");
     buffer[received] = '\0';
     printf("%s", buffer);
 
-    // Demande du pseudo
-    printf("Entrez votre pseudo : ");
-    fflush(stdout);
+    do {
+        received = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        CHECK_ERR(received, "recv");
+        buffer[received] = '\0';
+        printf("%s", buffer);
 
-    if (fgets(buffer, sizeof(buffer), stdin) == NULL) exit(EXIT_FAILURE);
-    int sent = send(sock, buffer, strlen(buffer), 0);
-    CHECK_ERR(sent, "send");
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+            CHECK_ERR(-1, "fgets");
+        buffer[strcspn(buffer, "\n")] = '\0';
+        send(sock, buffer, strlen(buffer), 0);
+
+        received = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        CHECK_ERR(received, "recv");
+        buffer[received] = '\0';
+        printf("%s", buffer);
+
+        status = buffer[0] - '0';
+    } while (status != 0);
 }
 
 /*====== Gère les saisies clavier ======*/
 int handle_stdin(int sock, Buffer *stdinBuf) {
     char buffer[BUFFER_SIZE];
 
-    if (buff_fgets(stdinBuf, buffer, sizeof(buffer)) == NULL) {
-        if (buff_eof(stdinBuf)) {
-            return -1;
-        }
-        return 0;
-    }
+    // Lire depuis le buffer
+    if (buff_fgets(stdinBuf, buffer, sizeof(buffer)) == NULL) return -1;
 
+    // Supprimer le saut de ligne
     buffer[strcspn(buffer, "\n")] = '\0';
 
+    // Vérifier si c'est une commande de sortie
     if (is_exit_command(buffer)) {
-        printf("\n[Déconnexion...]\n");
-        send(sock, "/exit", strlen("/exit"), 0);
+        send(sock, buffer, strlen(buffer), 0);
         return -1;
     }
 
-    strcat(buffer, "\n");
-
-    /* LF → CRLF */
-    char *crlfLine = lf_to_crlf(buffer);
-    if (crlfLine == NULL) {
-        fprintf(stderr, "[CLIENT ERROR] - LF to CRLF\n");
-        return 0;
+    // Envoyer le message
+    int sendRes = send(sock, buffer, strlen(buffer), 0);
+    if (sendRes < 0) {
+        perror("send");
+        return -1;
     }
 
-    /* envoi au serveur */
-    int sent = send(sock, crlfLine, strlen(crlfLine), 0);
-    CHECK_ERR(sent, "send");
-
-    printf("%s", PROMPT);
+    printf("%s", PROMPT);  // Réafficher le prompt
     return 0;
 }
 
@@ -127,24 +130,20 @@ int handle_stdin(int sock, Buffer *stdinBuf) {
 int handle_socket(int sock, Buffer *socketBuf) {
     char buffer[BUFFER_SIZE];
 
-    if (buff_fgets_crlf(socketBuf, buffer, sizeof(buffer)) == NULL) {
-        if (buff_eof(socketBuf)) {
-            printf("\n[Serveur déconnecté]\n");
-            return -1;
-        }
-        return 0;
+    // Lire depuis le buffer de socket
+    int bytesRead = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    if (bytesRead <= 0) {
+        if (bytesRead == 0)
+            printf("\nLa connexion au serveur a été fermée.\n");
+        else
+            perror("recv");
+        return -1;  // Signal pour quitter
     }
 
-    /* CRLF → LF */
-    char *lfLine = crlf_to_lf(buffer);
-    if (lfLine == NULL) {
-        fprintf(stderr, "[CLIENT ERROR] - CRLF to LF\n");
-        return 0;
-    }
+    buffer[bytesRead] = '\0';
 
-    lfLine[strcspn(lfLine, "\n")] = '\0';
+    printf("%s", buffer);
 
-    printf("\r\033[K%s\n%s", lfLine, PROMPT);
     return 0;
 }
 

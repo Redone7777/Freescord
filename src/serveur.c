@@ -54,10 +54,6 @@ int create_listening_sock(uint16_t port) {
     socketAdresse.sin_port = htons(port);
     socketAdresse.sin_addr.s_addr = INADDR_ANY;
 
-    // Autoriser la réutilisation de l'adresse
-    int optval = 1;
-    setsockopt(sockFD, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-
     int bindRes =
         bind(sockFD, (struct sockaddr *)&socketAdresse, sizeof(socketAdresse));
     CHECK_ERR(bindRes, "bind");
@@ -78,7 +74,8 @@ void *handle_client(void *user) {
     CHECK_ERR(sent, "send");
 
     // Demande du pseudo
-    ask_username(u->sock, u->username, 32);
+    ask_username(u->sock, u->username, 16);
+
     printf("\nUtilisateur connecté : [%s]\n\n", u->username);
 
     char BUFFER[BUFFER_SIZE];
@@ -181,4 +178,63 @@ void on_exit(int sig) {
     printf("\n[Serveur arrêté]\n");
 
     exit(EXIT_SUCCESS);
+}
+
+// Demande au client de saisir un username et le stocke dans username
+void ask_username(int client, char *username, size_t size) {
+    char buffer[64];
+    int status, received, sent;
+    const char *prompt = "Entrez votre pseudo : ";
+
+    do {
+        sent = send(client, prompt, strlen(prompt), 0);
+        CHECK_ERR(sent, "send prompt");
+
+        received = recv(client, buffer, sizeof(buffer) - 1, 0);
+        CHECK_ERR(received, "recv");
+
+        // Remplace le CRLF par un NUL
+        buffer[received] = '\0';
+        buffer[strcspn(buffer, "\r\n")] = '\0';
+
+        status = check_nickname(buffer, size);
+        send_error_nickname(client, status);
+
+    } while (status != 0);
+
+    strncpy(username, buffer, size - 1);
+    username[size - 1] = '\0';
+}
+
+int check_nickname(char *buffer, size_t size) {
+    buffer[strcspn(buffer, "\r\n")] = '\0';
+    size_t len = strlen(buffer);
+
+    // 2. Vérifie la taille du nickname
+    if (len == 0 || len >= size) return 2;
+
+    for (size_t i = 0; i < len; i++)
+        if (buffer[i] == ' ' || buffer[i] == ':') return 2;
+
+    // 1. Vérifie si le nickname est déjà pris
+    pthread_mutex_lock(&mutexUser);
+    for (NODE *curr = connectUsers->first; curr; curr = curr->next) {
+        struct user *u = curr->elt;
+        if (strcmp(u->username, buffer) == 0) return 1;
+    }
+    pthread_mutex_unlock(&mutexUser);
+
+    // 0. Le nickname est valide
+    return 0;
+}
+
+void send_error_nickname(int client, int status) {
+    const char *responses[] = {
+        "0 | Pseudo accepté.\n", "1 | Ce pseudo est déjà pris.\n : ",
+        "2 | Pseudo invalide.\nRègles :\n- Pas d'espaces ni de ':'\n- Taille "
+        "entre 1 et 15 caractères\n : ",
+        "3 | Erreur inconnue.\n"};
+
+    int idx = (status >= 0 && status <= 2) ? status : 3;
+    send(client, responses[idx], strlen(responses[idx]), 0);
 }

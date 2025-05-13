@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "list/list.h"
+
 struct user {
     char *username;
 
@@ -21,9 +23,6 @@ struct user {
  * pointeur vers un struct user, dynamiquement alloué et convenablement
  * initialisé */
 struct user *user_accept(int sl);
-
-/** demander au client de saisir un username*/
-void ask_username(int client, char *username, size_t size);
 
 /** libérer toute la mémoire associée à user */
 void user_free(struct user *user);

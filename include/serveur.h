@@ -10,7 +10,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "list/list.h"
 #include "user.h"
 
 #define MAX_CLIENTS 10
@@ -50,6 +49,15 @@ void repeat_message(struct user *u, char *message);
 
 /* Envoie un message à tous les utilisateurs connectés sauf l'émetteur */
 void send_messageAll(LIST *users, char *message, int sender_socket);
+
+/** demander au client de saisir un username*/
+void ask_username(int client, char *username, size_t size);
+
+/** Vérifier la validité du pseudo */
+int check_nickname(char *buffer, size_t size);
+
+/* Envoie un message d'erreur au client */
+void send_error_nickname(int client, int status);
 
 /* Vérifie si la commande est une commande de déconnexion */
 int is_exit_command(char *buffer);
