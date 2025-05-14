@@ -91,7 +91,7 @@ void show_error_dialog(GtkWindow *parent, const char *title,
 
 // Prototypes de fonctions
 static gboolean append_message_idle(gpointer data);
-static void free_message_data(gpointer data);
+static void free_message_data(MessageData *data);
 static gboolean format_received_message_idle(gpointer data);
 static gboolean format_system_message_idle(gpointer data);
 

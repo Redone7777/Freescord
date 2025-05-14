@@ -31,7 +31,9 @@ int main(int argc, char *argv[]) {
     // Boucle d'acceptation des clients
     while (1) {
         struct user *u = user_accept(socketFD);
+        pthread_mutex_lock(&mutexUser);
         connectUsers = list_add(connectUsers, u);
+        pthread_mutex_unlock(&mutexUser);
 
         pthread_t threadUser;
         int threadRes = pthread_create(&threadUser, NULL, handle_client, u);
@@ -48,6 +50,10 @@ int main(int argc, char *argv[]) {
 int create_listening_sock(uint16_t port) {
     int sockFD = socket(AF_INET, SOCK_STREAM, 0);
     CHECK_ERR(sockFD, "socket");
+
+    // Option pour réutiliser l'adresse
+    int opt = 1;
+    setsockopt(sockFD, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     struct sockaddr_in socketAdresse;
     socketAdresse.sin_family = AF_INET;
@@ -76,19 +82,20 @@ void *handle_client(void *user) {
     // Demande du pseudo
     ask_username(u->sock, u->username, 16);
 
-    printf("\nUtilisateur connecté : [%s]\n\n", u->username);
+    printf("\n[CONNEXION] Utilisateur connecté : %s\n", u->username);
 
     char BUFFER[BUFFER_SIZE];
     int recvRes;
 
     while (1) {
         // Réception du message
-        recvRes = recv(u->sock, BUFFER, sizeof(BUFFER), 0);
+        recvRes = recv(u->sock, BUFFER, sizeof(BUFFER) - 1, 0);
 
         // Vérifier si le client s'est déconnecté
         if (recvRes <= 0) {
             if (recvRes == 0)
-                printf("Connexion fermée par le client [%s]\n", u->username);
+                printf("[DECONNEXION] Connexion fermée par le client %s\n",
+                       u->username);
             else
                 perror("recv");
             break;
@@ -97,22 +104,23 @@ void *handle_client(void *user) {
         BUFFER[recvRes] = '\0';
 
         // Vérifier si c'est une commande de déconnexion
-        if (is_exit_command(BUFFER)) break;
+        if (is_exit_command(BUFFER)) {
+            printf("[DECONNEXION] %s a quitté le chat\n", u->username);
+            break;
+        }
 
         // Ajouter le pseudo devant le message
         struct message_info msg;
         msg.sender_socket = u->sock;
-        snprintf(msg.content, sizeof(msg.content), "%s : %s\n", u->username,
+        snprintf(msg.content, sizeof(msg.content), "%s: %s\n", u->username,
                  BUFFER);
 
-        printf("%s", msg.content);
+        printf("[MESSAGE] %s", msg.content);
 
         // Écriture dans le tube
         int writeRes = write(myTube[1], &msg, sizeof(msg));
         CHECK_ERR(writeRes, "write");
     }
-
-    printf("Utilisateur déconnecté : [%s]\n", u->username);
 
     // Supprimer l'utilisateur de la liste des connectés
     pthread_mutex_lock(&mutexUser);
@@ -173,9 +181,11 @@ void on_exit(int sig) {
 
     pthread_mutex_destroy(&mutexUser);
 
-    list_free(connectUsers, (void *)user_free);
+    if (connectUsers) {
+        list_free(connectUsers, (void *)user_free);
+    }
 
-    printf("\n[Serveur arrêté]\n");
+    printf("\n[ARRET] Serveur arrêté\n");
 
     exit(EXIT_SUCCESS);
 }
@@ -220,7 +230,10 @@ int check_nickname(char *buffer, size_t size) {
     pthread_mutex_lock(&mutexUser);
     for (NODE *curr = connectUsers->first; curr; curr = curr->next) {
         struct user *u = curr->elt;
-        if (strcmp(u->username, buffer) == 0) return 1;
+        if (strcmp(u->username, buffer) == 0) {
+            pthread_mutex_unlock(&mutexUser);
+            return 1;
+        }
     }
     pthread_mutex_unlock(&mutexUser);
 
@@ -230,10 +243,11 @@ int check_nickname(char *buffer, size_t size) {
 
 void send_error_nickname(int client, int status) {
     const char *responses[] = {
-        "0 | Pseudo accepté.\n", "1 | Ce pseudo est déjà pris.\n : ",
+        "0 | Pseudo accepté.\n",
+        "1 | Ce pseudo est déjà pris.\nEntrez votre pseudo : ",
         "2 | Pseudo invalide.\nRègles :\n- Pas d'espaces ni de ':'\n- Taille "
-        "entre 1 et 15 caractères\n : ",
-        "3 | Erreur inconnue.\n"};
+        "entre 1 et 15 caractères\nEntrez votre pseudo : ",
+        "3 | Erreur inconnue.\nEntrez votre pseudo : "};
 
     int idx = (status >= 0 && status <= 2) ? status : 3;
     send(client, responses[idx], strlen(responses[idx]), 0);

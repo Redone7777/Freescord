@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
 
     welcome_sequence(socketFD);
     printf("%s", PROMPT);
+    fflush(stdout);
 
     struct pollfd fds[] = {{STDIN_FILENO, POLLIN, 0}, {socketFD, POLLIN, 0}};
 
@@ -78,12 +79,14 @@ void welcome_sequence(int sock) {
     CHECK_ERR(received, "recv welcome");
     buffer[received] = '\0';
     printf("%s", buffer);
+    fflush(stdout);
 
     do {
         received = recv(sock, buffer, sizeof(buffer) - 1, 0);
         CHECK_ERR(received, "recv");
         buffer[received] = '\0';
         printf("%s", buffer);
+        fflush(stdout);
 
         if (fgets(buffer, sizeof(buffer), stdin) == NULL)
             CHECK_ERR(-1, "fgets");
@@ -94,9 +97,12 @@ void welcome_sequence(int sock) {
         CHECK_ERR(received, "recv");
         buffer[received] = '\0';
         printf("%s", buffer);
+        fflush(stdout);
 
         status = buffer[0] - '0';
     } while (status != 0);
+
+    printf("\n\n");
 }
 
 /*====== Gère les saisies clavier ======*/
@@ -123,6 +129,7 @@ int handle_stdin(int sock, Buffer *stdinBuf) {
     }
 
     printf("%s", PROMPT);  // Réafficher le prompt
+    fflush(stdout);
     return 0;
 }
 
@@ -142,7 +149,16 @@ int handle_socket(int sock, Buffer *socketBuf) {
 
     buffer[bytesRead] = '\0';
 
+    // Supprimer le prompt actuel avant d'afficher le message
+    printf("\r");      // Retour en début de ligne
+    printf("\033[K");  // Effacer la ligne
+
+    // Afficher le message reçu
     printf("%s", buffer);
+
+    // Réafficher le prompt après le message
+    printf("%s", PROMPT);
+    fflush(stdout);
 
     return 0;
 }
