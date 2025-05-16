@@ -21,7 +21,7 @@ BIN_TEST := $(BIN_DIR)/test_list
 # Sources
 SRC_SRV := $(SRC_DIR)/serveur.c $(SRC_DIR)/user.c
 SRC_CLT := $(SRC_DIR)/client.c $(SRC_DIR)/utils.c
-SRC_GUI := $(SRC_DIR)/freescord_gui.c $(SRC_DIR)/utils.c # ⚠️ client.c retiré
+SRC_GUI := $(SRC_DIR)/freescord_gui.c $(SRC_DIR)/utils.c 
 SRC_BUFFER := $(INC_DIR)/buffer/buffer.c
 SRC_LIST := $(INC_DIR)/list/list.c
 SRC_TEST := $(INC_DIR)/list/test_list.c
@@ -87,23 +87,21 @@ list: $(BIN_TEST)
 # Test
 test-terminal: $(BIN_SRV) $(BIN_CLT)
 	@command -v tmux >/dev/null 2>&1 || { echo >&2 "tmux n'est pas installé."; exit 1; }
-	@tmux kill-session -t freescord 2>/dev/null || true
 	@tmux new-session -d -s freescord './$(BIN_SRV)'
 	@sleep 1
 	@tmux split-window -h './$(BIN_CLT)'
 	@tmux select-layout even-horizontal
 	@tmux attach-session -t freescord
-
+	@tmux kill-session -t freescord 2>/dev/null || true
 	
 test-gui: $(BIN_SRV) $(BIN_GUI)
 	@command -v tmux >/dev/null 2>&1 || { echo >&2 "tmux n'est pas installé."; exit 1; }
-	@tmux kill-session -t freescord 2>/dev/null || true
 	@tmux new-session -d -s freescord './$(BIN_SRV)'
 	@sleep 1
 	@tmux split-window -h './$(BIN_GUI)'
 	@tmux select-layout even-horizontal
 	@tmux attach-session -t freescord
-
+	@tmux kill-session -t freescord 2>/dev/null || true
 	
 # Nettoyage
 clean:

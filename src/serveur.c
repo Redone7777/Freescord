@@ -75,16 +75,7 @@ void *handle_client(void *user) {
     struct user *u = (struct user *)user;
 
     // Message de bienvenue
-    const char *welcome =
-        "__        __   _                            _         \n"
-        "\\ \\      / /__| | ___ ___  _ __ ___   ___  | |__  ___ \n"
-        " \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\ | '_ \\/ __|\n"
-        "  \\ V  V /  __/ | (_| (_) | | | | | |  __/ | | | \\__ \\\n"
-        "   \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\___| |_| |_|___/\n"
-        "                                                     \n"
-        "  Bienvenue sur le serveur Freescord !              \n"
-        "  Ici, on code, on rigole, et parfois... on crash. 💥\n";
-
+    const char *welcome = "Bienvenue sur Freescord !\r\n";
     int sent = send(u->sock, welcome, strlen(welcome), 0);
     CHECK_ERR(sent, "send");
 
