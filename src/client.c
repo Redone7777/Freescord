@@ -1,5 +1,7 @@
 #include "../include/client.h"
 
+#include "../include/utils.h"
+
 /*====== Fonction principale ======*/
 int main(int argc, char *argv[]) {
     char *host = argc == 3 ? argv[1] : CONNECTION_HOST;
@@ -13,6 +15,7 @@ int main(int argc, char *argv[]) {
     Buffer *stdinBuf = buff_create(STDIN_FILENO, BUFFER_SIZE);
     if (stdinBuf == NULL) {
         fprintf(stderr, "[CLIENT ERROR] - buffer stdin\n");
+        close(socketFD);
         exit(EXIT_FAILURE);
     }
 
@@ -20,6 +23,7 @@ int main(int argc, char *argv[]) {
     if (socketBuf == NULL) {
         fprintf(stderr, "[CLIENT ERROR] - buffer socket\n");
         buff_free(stdinBuf);
+        close(socketFD);
         exit(EXIT_FAILURE);
     }
 
@@ -31,15 +35,14 @@ int main(int argc, char *argv[]) {
 
     bool done = false;
     while (!done) {
-        // Attendre que l'un des deux buffers soit prêt
-        if (!buff_ready(stdinBuf) && !buff_ready(socketBuf)) {
-            int pollResult = poll(fds, 2, -1);
-            CHECK_ERR(pollResult, "poll");
-        }
+        int pollResult = poll(fds, 2, -1);
+        CHECK_ERR(pollResult, "poll");
 
+        // Gestion de l'entrée standard (stdin)
         if (buff_ready(stdinBuf) || (fds[0].revents & POLLIN))
             if (handle_stdin(socketFD, stdinBuf) < 0) done = true;
 
+        // Gestion des messages du serveur
         if (buff_ready(socketBuf) || (fds[1].revents & POLLIN))
             if (handle_socket(socketFD, socketBuf) < 0) done = true;
     }
@@ -72,11 +75,12 @@ int connect_serveur_tcp(char *adresse, uint16_t port) {
 /*====== Séquence d'accueil et pseudo ======*/
 void welcome_sequence(int sock) {
     char buffer[BUFFER_SIZE];
-    int received, status;
+    int received, sended, status;
 
     // Message de bienvenue
     received = recv(sock, buffer, sizeof(buffer) - 1, 0);
     CHECK_ERR(received, "recv welcome");
+
     buffer[received] = '\0';
     printf("%s", buffer);
     fflush(stdout);
@@ -84,21 +88,30 @@ void welcome_sequence(int sock) {
     do {
         received = recv(sock, buffer, sizeof(buffer) - 1, 0);
         CHECK_ERR(received, "recv");
+
         buffer[received] = '\0';
         printf("%s", buffer);
         fflush(stdout);
 
+        // Lire le pseudo depuis stdin
         if (fgets(buffer, sizeof(buffer), stdin) == NULL)
             CHECK_ERR(-1, "fgets");
         buffer[strcspn(buffer, "\n")] = '\0';
-        send(sock, buffer, strlen(buffer), 0);
 
+        lf_to_crlf(buffer);
+        sended = send(sock, buffer, strlen(buffer), 0);
+        CHECK_ERR(sended, "send nickname");
+
+        // Recevoir la réponse du serveur
         received = recv(sock, buffer, sizeof(buffer) - 1, 0);
         CHECK_ERR(received, "recv");
         buffer[received] = '\0';
+
+        crlf_to_lf(buffer);
         printf("%s", buffer);
         fflush(stdout);
 
+        // Extraire le status (premier caractère)
         status = buffer[0] - '0';
     } while (status != 0);
 
@@ -108,27 +121,27 @@ void welcome_sequence(int sock) {
 /*====== Gère les saisies clavier ======*/
 int handle_stdin(int sock, Buffer *stdinBuf) {
     char buffer[BUFFER_SIZE];
+    int sended;
 
-    // Lire depuis le buffer
     if (buff_fgets(stdinBuf, buffer, sizeof(buffer)) == NULL) return -1;
 
-    // Supprimer le saut de ligne
     buffer[strcspn(buffer, "\n")] = '\0';
 
-    // Vérifier si c'est une commande de sortie
     if (is_exit_command(buffer)) {
-        send(sock, buffer, strlen(buffer), 0);
+        lf_to_crlf(buffer);
+        sended = send(sock, buffer, strlen(buffer), 0);
+        CHECK_ERR(sended, "send exit");
+
+        printf("\nDéconnexion...\n");
+        close(sock);
         return -1;
     }
 
-    // Envoyer le message
+    lf_to_crlf(buffer);
     int sendRes = send(sock, buffer, strlen(buffer), 0);
-    if (sendRes < 0) {
-        perror("send");
-        return -1;
-    }
+    CHECK_ERR(sendRes, "send");
 
-    printf("%s", PROMPT);  // Réafficher le prompt
+    printf("%s", PROMPT);
     fflush(stdout);
     return 0;
 }
@@ -137,33 +150,25 @@ int handle_stdin(int sock, Buffer *stdinBuf) {
 int handle_socket(int sock, Buffer *socketBuf) {
     char buffer[BUFFER_SIZE];
 
-    // Lire depuis le buffer de socket
-    int bytesRead = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytesRead <= 0) {
-        if (bytesRead == 0)
+    if (buff_fgets_crlf(socketBuf, buffer, sizeof(buffer)) == NULL) {
+        if (buff_eof(socketBuf)) {
             printf("\nLa connexion au serveur a été fermée.\n");
-        else
-            perror("recv");
-        return -1;  // Signal pour quitter
+            return -1;
+        }
+        return 0;
     }
 
-    buffer[bytesRead] = '\0';
+    crlf_to_lf(buffer);
 
-    // Supprimer le prompt actuel avant d'afficher le message
-    printf("\r");      // Retour en début de ligne
+    printf("\r");
     printf("\033[K");  // Effacer la ligne
-
-    // Afficher le message reçu
     printf("%s", buffer);
 
-    // Réafficher le prompt après le message
+    // Réafficher le prompt
     printf("%s", PROMPT);
     fflush(stdout);
 
     return 0;
 }
 
-int is_exit_command(char *buffer) {
-    while (*buffer && (*buffer == ' ' || *buffer == '\t')) buffer++;
-    return (strcmp(buffer, "/exit") == 0);
-}
+int is_exit_command(char *buffer) { return (strcmp(buffer, "/exit") == 0); }

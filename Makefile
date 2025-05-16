@@ -81,16 +81,36 @@ client: $(BIN_CLT)
 gui: $(BIN_GUI)
 	./$(BIN_GUI)
 
-test: $(BIN_TEST)
-	valgrind --leak-check=full ./$(BIN_TEST)
+list: $(BIN_TEST)
+	./$(BIN_TEST)
 
+# Test
+test-terminal: $(BIN_SRV) $(BIN_CLT)
+	@command -v tmux >/dev/null 2>&1 || { echo >&2 "tmux n'est pas installé."; exit 1; }
+	@tmux kill-session -t freescord 2>/dev/null || true
+	@tmux new-session -d -s freescord './$(BIN_SRV)'
+	@sleep 1
+	@tmux split-window -h './$(BIN_CLT)'
+	@tmux select-layout even-horizontal
+	@tmux attach-session -t freescord
+
+	
+test-gui: $(BIN_SRV) $(BIN_GUI)
+	@command -v tmux >/dev/null 2>&1 || { echo >&2 "tmux n'est pas installé."; exit 1; }
+	@tmux kill-session -t freescord 2>/dev/null || true
+	@tmux new-session -d -s freescord './$(BIN_SRV)'
+	@sleep 1
+	@tmux split-window -h './$(BIN_GUI)'
+	@tmux select-layout even-horizontal
+	@tmux attach-session -t freescord
+
+	
 # Nettoyage
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
 
 # Dépendances
 install-deps:
-	sudo apt-get update
 	sudo apt-get install -y libgtk-3-dev pkg-config
 
 .PHONY: all clean directories serveur client gui test install-deps
